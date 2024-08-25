@@ -15,10 +15,20 @@ const config: { [key: string]: Knex.Config } = {
 
   staging: {
     client: "postgresql",
-    connection: process.env.DATABASE_URL,
+    connection: {
+      connectionString:
+      process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    },
+    acquireConnectionTimeout: 5000,
     pool: {
-      min: 2,
-      max: 10
+      min: 0,
+      max: 10,
+      createTimeoutMillis: 8000,
+      acquireTimeoutMillis: 8000,
+      idleTimeoutMillis: 8000,
+      reapIntervalMillis: 1000,
+      createRetryIntervalMillis: 100,
     },
     migrations: {
       tableName: "knex_migrations",
