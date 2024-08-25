@@ -10,12 +10,13 @@ import { MealsModule } from './meals/meals.module';
 import { AddonsModule } from './addons/addons.module';
 import { BrandsModule } from './brands/brands.module';
 import { OrderTypesModule } from './order-types/order-types.module';
+import { WebsocketsGatewayModule } from './gateway/websockets.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     DatabaseModule, 
-    OrdersModule, OrderLogsModule, CalculatedOrdersModule, MealsModule, AddonsModule, BrandsModule, OrderTypesModule
+    OrdersModule, OrderLogsModule, CalculatedOrdersModule, MealsModule, AddonsModule, BrandsModule, OrderTypesModule, WebsocketsGatewayModule
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,5 +1,6 @@
 import { PartialType } from "@nestjs/mapped-types";
-import { IsNotEmpty, IsBoolean, IsOptional, IsNumber, IsDateString, IsString, IsInt, IsJSON } from "class-validator";
+import { Type } from "class-transformer";
+import { IsNotEmpty, IsBoolean, IsOptional, IsNumber, IsDateString, IsString, IsInt, IsJSON, IsArray, ValidateNested, IsObject } from "class-validator";
 
 export class CreateOrderDto {
   @IsInt()
@@ -131,5 +132,66 @@ export class CreateOrderDto {
   @IsInt()
   orderTypeId: number;
 }
+
+class AddressDetailsDto {
+  @IsNotEmpty()
+  city: string;
+
+  @IsNotEmpty()
+  name: string;
+
+  @IsNotEmpty()
+  addressLine: string;
+
+  @IsNotEmpty()
+  buildingNumber: string;
+}
+
+class AddonDto {
+  @IsNumber()
+  addonId: number;
+}
+
+class MealsDetailsDto {
+  @IsNumber()
+  mealId: number;
+
+  @IsNumber()
+  quantity: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AddonDto)
+  addons: AddonDto[];
+}
+
+export class ProcessOrderDto {
+  @IsNumber()
+  @IsNotEmpty()
+  userId: number;
+
+  @IsBoolean()
+  @IsOptional()
+  freeDelivery?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  deliveryFee?: number;
+
+  @IsNumber()
+  @IsOptional()
+  serviceCharge?: number;
+
+  @IsObject()
+  @ValidateNested()
+  @Type(() => AddressDetailsDto)
+  addressDetails: AddressDetailsDto;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => MealsDetailsDto)
+  mealsDetails: MealsDetailsDto[];
+}
+
 
 export class UpdateOrderDto extends PartialType(CreateOrderDto) {}

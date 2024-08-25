@@ -1,18 +1,16 @@
 import { Injectable, NotFoundException , Inject} from '@nestjs/common';
 import { Order } from '../database/models/order.model';
 import { CreateOrderDto, UpdateOrderDto } from './dtos/order.dto';
-import { OrdersGateway } from './orders.gateway';
 import { OrderLog } from '../database/models/order-logs.model';
 import { generateOrderCode } from 'src/util/orderCode.utils';
 import { CalculatedOrder } from '../database/models/calculated-orders.model';
 import { CreateOrderLogDto } from 'src/order-logs/dtos/order-logs.dto';
 import { OrderLogService } from 'src/order-logs/order-logs.service';
 import { Page } from 'objection';
-
+import { WebsocketsGateway} from "../gateway/websockets.gateway"
 @Injectable()
 export class OrderService {
-  constructor( private ordersGateway: OrdersGateway, private readonly orderLogService: OrderLogService
-) {}
+  constructor(private readonly websocketsGateway: WebsocketsGateway,  readonly orderLogService: OrderLogService) {} 
 
   async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
     const calculatedOrder = await CalculatedOrder.query().findById(
@@ -112,53 +110,67 @@ export class OrderService {
     const order = await Order
       .query()
       .findById(id)
-      .withGraphFetched('[calculatedOrder.[meals.addons], logs]');
-      console.log("order", order)
+      .withGraphFetched('[calculatedOrder, logs]');
   
     if (!order) {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
   
-    // Validate order status
-    if (order.completed || order.cancelled) {
-      throw new Error('Order is already completed or cancelled');
+    if (order.completed ) {
+      throw new Error('Order is already completed');
+    }
+
+    if (order.cancelled) {
+      throw new Error('Order is cancelled');
     }
   
-    // Check kitchen processes
-    console.log(order)
-    if (!order.kitchenAccepted || !order.kitchenPrepared || !order.kitchenDispatched) {
-      await OrderLog.query().insert({
-        orderId: order.id,
-        description: `Order processed and completed with total amount ${700}`,
+    if (!order.kitchenAccepted) {
+      
+      this.websocketsGateway.notifyOrderUpdate('Order not yet accepted by kitchen');
+      throw new Error('Order not yet accepted by kitchen');
+
+    } else if (order.kitchenAccepted && !order.kitchenPrepared) {
+
+      this.websocketsGateway.notifyOrderUpdate('Order accepted by kitchen');
+      await this.orderLogService.createOrderLog(id, {
         time: new Date(),
+        description: 'Order accepted by kitchen',
       });
+
+    } else if (order.kitchenPrepared && !order.kitchenDispatched) {
+
+      this.websocketsGateway.notifyOrderUpdate('Order completed by kitchen');
+      await this.orderLogService.createOrderLog(id, {
+        time: new Date(),
+        description: 'Order completed by kitchen',
+      });
+
+    } else if (order.kitchenDispatched && !order.riderArrived) {
+
+      await Order.query().patchAndFetchById(id, { riderArrived: true });
+      this.websocketsGateway.notifyOrderUpdate('Order dispatched by front desk');
+      await this.orderLogService.createOrderLog(id, {
+        time: new Date(),
+        description: 'Order dispatched by front desk',
+      });
+
+    } else if (order.kitchenDispatched && order.riderArrived) {
+
+      this.websocketsGateway.notifyOrderUpdate('Order dispatched by front desk');
+      await Order.query().patchAndFetchById(id, { riderArrived: true });
+      await this.orderLogService.createOrderLog(id, {
+        time: new Date(),
+        description: 'Order dispatched by front desk',
+      });
+
+      this.websocketsGateway.notifyOrderUpdate(`Order completed`);
+      await Order.query().patchAndFetchById(id, {
+        completed: true,
+        completedTime: new Date(),
+      });
+    } else {
+      throw new Error('Order has already been processed');
     }
-    /***
-     * calculatedOrder will have the orderId and details partaining what was ordered
-     */
-  
-    // Calculate the total order amount including addons
-    // const totalAmount = order.calculatedOrder!.meals.reduce((sum, meal) => {
-    //   const addonsTotal = meal.addons.reduce((addonSum, addon) => addonSum + addon.amount, 0);
-    //   return sum + meal.price + addonsTotal;
-    // }, 0);
-  
-    // Update order details
-    order.completed = true;
-    order.completedTime = new Date();
-    // order.calculatedOrder.totalAmount = totalAmount;  // Update total amount in CalculatedOrder
-  
-    await order.$query().patch();
-  
-    // Log the order update
-    await OrderLog.query().insert({
-      orderId: order.id,
-      description: `Order processed and completed with total amount ${7}`,
-      time: new Date(),
-    });
-  
-    // Push order status updates to WebSocket
-    this.ordersGateway.notifyOrderUpdate(order);
   
     return order;
   }
