@@ -25,9 +25,7 @@ const providers = [
     provide: 'KnexConnection',
     useFactory: async () => {
       const knex = Knex({
-        client: 'pg',
-        connection: process.env.DATABASE_URL,
-        debug: process.env.KNEX_DEBUG === 'true',
+        ...knexConfig,
         ...knexSnakeCaseMappers(),
       });
 

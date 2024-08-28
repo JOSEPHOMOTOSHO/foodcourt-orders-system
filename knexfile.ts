@@ -1,61 +1,27 @@
 import type { Knex } from "knex";
 import * as dotenv from 'dotenv';
+import { ConfigService } from "@nestjs/config";
 
 dotenv.config();
 
 // Update with your config settings.
+const configService = new ConfigService();
 
-const config: { [key: string]: Knex.Config } = {
-  development: {
-    client: "sqlite3",
-    connection: {
-      filename: "./dev.sqlite3"
-    }
-  },
 
-  staging: {
+const config: Knex.Config  = {
     client: "postgresql",
     connection: {
-      connectionString:
-      process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-    },
-    acquireConnectionTimeout: 5000,
-    pool: {
-      min: 0,
-      max: 10,
-      createTimeoutMillis: 8000,
-      acquireTimeoutMillis: 8000,
-      idleTimeoutMillis: 8000,
-      reapIntervalMillis: 1000,
-      createRetryIntervalMillis: 100,
+      user: process.env.DATABASE_USER,
+      database: process.env.DATABASE_NAME,
+      password: process.env.DATABASE_PASSWORD,
+      port: Number(process.env.DATABASE_PORT),
+      host: process.env.DATABASE_HOST,
+      ssl: {rejectUnauthorized: false}
     },
     migrations: {
       tableName: "knex_migrations",
       directory:"./src/database/migrations"
-    },
-    seeds: {
-      directory: './src/database/seeds',
-      stub: './src/database/seed.stub'
-    },
-  },
-
-  production: {
-    client: "postgresql",
-    connection: {
-      database: "my_db",
-      user: "username",
-      password: "password"
-    },
-    pool: {
-      min: 2,
-      max: 10
-    },
-    migrations: {
-      tableName: "knex_migrations"
     }
-  }
-
 };
 
 export default config;
